@@ -1,0 +1,120 @@
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
+
+from ..auth import AuthUser, require_admin, require_member
+from ..database import get_db
+from ..models.member import Member
+from ..models.user import User
+from ..schemas.member import MemberCreate, MemberOut, MemberSelfUpdate, MemberUpdate
+from ..services.member_link import ensure_user_member_link
+from ..services.slug_assign import ensure_unique_slug
+
+router = APIRouter(prefix="/api/members", tags=["members"])
+admin = APIRouter(prefix="/api/admin/members", tags=["admin-members"], dependencies=[Depends(require_admin)])
+member = APIRouter(prefix="/api/member", tags=["member-profile"], dependencies=[Depends(require_member)])
+
+@router.get("", response_model=list[MemberOut], summary="成员列表", description="公开。可用 query `status=current|alumni` 筛选。")
+def list_members(
+    status_filter: str | None = Query(None, alias="status"),
+    db: Session = Depends(get_db),
+):
+    q = db.query(Member)
+    if status_filter:
+        q = q.filter(Member.status == status_filter)
+    return q.order_by(Member.sort_order, Member.id).all()
+
+@router.get("/by-slug/{slug}", response_model=MemberOut, summary="按 slug 获取成员")
+def get_member_by_slug(slug: str, db: Session = Depends(get_db)):
+    m = db.query(Member).filter(Member.slug == slug).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="成员不存在")
+    return m
+
+@router.get("/{member_id}", response_model=MemberOut, summary="按数字 ID 获取成员")
+def get_member(member_id: int, db: Session = Depends(get_db)):
+    m = db.get(Member, member_id)
+    if not m:
+        raise HTTPException(status_code=404, detail="成员不存在")
+    return m
+
+def _member_for_user(db: Session, auth_user: AuthUser) -> Member:
+    db_user = db.get(User, auth_user.user_id)
+    if not db_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
+    ensure_user_member_link(db, db_user)
+    if db_user.member_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="未关联成员档案，请确认登录姓名与成员卡片姓名一致，或联系管理员",
+        )
+    m = db.get(Member, db_user.member_id)
+    if not m:
+        raise HTTPException(status_code=404, detail="成员档案不存在")
+    return m
+
+@member.get("/profile", response_model=MemberOut, summary="我的成员档案")
+def get_my_profile(user: AuthUser = Depends(require_member), db: Session = Depends(get_db)):
+    return _member_for_user(db, user)
+
+@member.put("/profile", response_model=MemberOut, summary="更新我的档案")
+def update_my_profile(
+    data: MemberSelfUpdate,
+    user: AuthUser = Depends(require_member),
+    db: Session = Depends(get_db),
+):
+    m = _member_for_user(db, user)
+
+    for key, value in data.model_dump(exclude_unset=True).items():
+        setattr(m, key, value)
+    m.updated_by = user.display_name
+    db.commit()
+    db.refresh(m)
+    return m
+
+@admin.get("", response_model=list[MemberOut], summary="成员列表（管理员）")
+def admin_list_members(
+    status_filter: str | None = Query(None, alias="status"),
+    db: Session = Depends(get_db),
+):
+    q = db.query(Member)
+    if status_filter:
+        q = q.filter(Member.status == status_filter)
+    return q.order_by(Member.sort_order, Member.id).all()
+
+@admin.post("", response_model=MemberOut, status_code=201, summary="创建成员")
+def create_member(data: MemberCreate, user: AuthUser = Depends(require_admin), db: Session = Depends(get_db)):
+    payload = data.model_dump()
+    payload["updated_by"] = user.display_name
+    base_slug = payload.pop("slug", None) or payload["name"]
+    payload["slug"] = ensure_unique_slug(db, Member, base_slug)
+    m = Member(**payload)
+    db.add(m)
+    db.commit()
+    db.refresh(m)
+    return m
+
+@admin.put("/{member_id}", response_model=MemberOut, summary="更新成员")
+def update_member(
+    member_id: int,
+    data: MemberUpdate,
+    user: AuthUser = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    m = db.get(Member, member_id)
+    if not m:
+        raise HTTPException(status_code=404, detail="成员不存在")
+    for key, value in data.model_dump(exclude_unset=True).items():
+        setattr(m, key, value)
+    m.updated_by = user.display_name
+    db.commit()
+    db.refresh(m)
+    return m
+
+@admin.delete("/{member_id}", status_code=204, summary="删除成员")
+def delete_member(member_id: int, db: Session = Depends(get_db)):
+    m = db.get(Member, member_id)
+    if not m:
+        raise HTTPException(status_code=404, detail="成员不存在")
+    db.delete(m)
+    db.commit()
