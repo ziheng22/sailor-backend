@@ -14,7 +14,7 @@ from .database import Base, check_database, engine
 from .middleware.security import AuthRateLimitMiddleware, SecurityHeadersMiddleware
 from .migrate import run_migrations
 from .openapi_tags import OPENAPI_TAGS
-from .routers import articles, campus, members, pages, points, projects, uploads
+from .routers import articles, campus, media, members, pages, points, projects, uploads
 from .routers.auth_router import router as auth_router
 from .startup_checks import configure_logging, run_startup_checks
 
@@ -67,6 +67,7 @@ def create_app() -> FastAPI:
     application.include_router(articles.router)
     application.include_router(pages.router)
     application.include_router(campus.router)
+    application.include_router(media.router)
     application.include_router(auth_router)
     application.include_router(members.member)
     application.include_router(articles.member)

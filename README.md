@@ -4,15 +4,20 @@ sailor 工作室 **独立后端**（FastAPI + SQLite）。
 
 前端仓库：`sailor-frontend`（另仓），通过 REST API 通信。
 
-## 快速启动
+## 快速启动（固定习惯）
 
-```bash
+**本仓库 = 仅后端，端口 8000。** 不要用 `posthog.com` 或前端仓里的旧 `backend/`。
+
+```powershell
+cd sailor-backend
 python -m venv .venv
-.venv\Scripts\activate
+.\.venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
+
+上级目录脚本：`..\scripts\start-backend.ps1`。双仓说明：[../REPOS.md](../REPOS.md)。
 
 - 健康检查：<http://localhost:8000/health>
 - 文档（开发）：<http://localhost:8000/docs>
