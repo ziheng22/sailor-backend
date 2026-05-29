@@ -1,0 +1,17 @@
+OPENAPI_TAGS = [
+    {"name": "members", "description": "成员档案 — 公开读取（列表、详情、按 slug）"},
+    {"name": "member-profile", "description": "当前登录成员 — 查看/修改自己的档案"},
+    {"name": "admin-members", "description": "成员 — 管理员增删改"},
+    {"name": "projects", "description": "项目作品 — 公开读取"},
+    {"name": "admin-projects", "description": "项目 — 管理员维护"},
+    {"name": "articles", "description": "航海日志 — 公开读取（登录后可看截止时间）"},
+    {"name": "member-articles", "description": "航海日志 — 登录成员创建/编辑"},
+    {"name": "admin-articles", "description": "航海日志 — 管理员全量维护"},
+    {"name": "pages", "description": "静态页（启航手册、登船邀请、灯塔信箱）"},
+    {"name": "admin-pages", "description": "静态页 — 管理员编辑"},
+    {"name": "auth", "description": "注册、登录、改密、当前用户"},
+    {"name": "points", "description": "积分榜与流水 — 需登录"},
+    {"name": "admin-points", "description": "积分下发 — 仅管理员"},
+    {"name": "admin-uploads", "description": "文件上传与管理 — 仅管理员"},
+    {"name": "campus", "description": "校园漫游 — 预留接口"},
+]
