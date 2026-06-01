@@ -92,7 +92,10 @@ class ArticleUpdate(BaseModel):
     @field_validator("published_at", mode="before")
     @classmethod
     def normalize_published_at(cls, value):
-        return _normalize_date_value(value)
+        out = _normalize_date_value(value)
+        if out is None and isinstance(value, str) and value.strip():
+            return None
+        return out
 
     @field_validator("completed_at", mode="before")
     @classmethod
@@ -106,6 +109,8 @@ class ArticleUpdate(BaseModel):
             if "T" not in text and _DATE_PREFIX.match(text):
                 d = _normalize_date_value(text)
                 return f"{d}T12:00:00" if d else None
+            if len(text) < 8:
+                return None
         return value
 
 class ArticleOut(ArticleBase):

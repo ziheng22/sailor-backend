@@ -9,6 +9,7 @@ from ..models.user import User
 from ..schemas.member import MemberCreate, MemberOut, MemberSelfUpdate, MemberUpdate
 from ..services.member_link import ensure_user_member_link
 from ..services.slug_assign import ensure_unique_slug
+from ..utils.grade_year import member_list_sort_key
 
 router = APIRouter(prefix="/api/members", tags=["members"])
 admin = APIRouter(prefix="/api/admin/members", tags=["admin-members"], dependencies=[Depends(require_admin)])
@@ -22,7 +23,9 @@ def list_members(
     q = db.query(Member)
     if status_filter:
         q = q.filter(Member.status == status_filter)
-    return q.order_by(Member.sort_order, Member.id).all()
+    members = q.all()
+    members.sort(key=lambda m: member_list_sort_key(m.grade, m.sort_order or 0, m.id))
+    return members
 
 @router.get("/by-slug/{slug}", response_model=MemberOut, summary="按 slug 获取成员")
 def get_member_by_slug(slug: str, db: Session = Depends(get_db)):
@@ -80,7 +83,9 @@ def admin_list_members(
     q = db.query(Member)
     if status_filter:
         q = q.filter(Member.status == status_filter)
-    return q.order_by(Member.sort_order, Member.id).all()
+    members = q.all()
+    members.sort(key=lambda m: member_list_sort_key(m.grade, m.sort_order or 0, m.id))
+    return members
 
 @admin.post("", response_model=MemberOut, status_code=201, summary="创建成员")
 def create_member(data: MemberCreate, user: AuthUser = Depends(require_admin), db: Session = Depends(get_db)):

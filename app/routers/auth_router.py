@@ -19,7 +19,6 @@ from ..services.member_link import ensure_user_member_link, resolve_member_id
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 class LoginRequest(BaseModel):
-    invite_code: str
     name: str
     password: str
 
@@ -94,21 +93,13 @@ def me(user: AuthUser = Depends(get_current_user), db: Session = Depends(get_db)
         member_id=db_user.member_id,
     )
 
-@router.post("/login", response_model=AuthResponse, summary="登录", description="姓名 + 密码 + 邀请码；管理员与成员邀请码不同。")
+@router.post("/login", response_model=AuthResponse, summary="登录", description="姓名 + 密码即可登录；有账号后不再需要邀请码。")
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     name = data.name.strip()
     if not name:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请输入姓名")
 
-    if verify_admin_invite_code(data.invite_code):
-        user = db.query(User).filter(User.name == name, User.role == "admin").first()
-        user = _authenticate_user(user, data.password)
-        return _user_response(user, _issue_token(user))
-
-    if not verify_member_invite_code(data.invite_code):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="邀请码错误")
-
-    user = db.query(User).filter(User.name == name, User.role == "member").first()
+    user = db.query(User).filter(User.name == name).first()
     user = _authenticate_user(user, data.password)
     ensure_user_member_link(db, user)
     return _user_response(user, _issue_token(user))
