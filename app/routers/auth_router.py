@@ -186,9 +186,5 @@ def change_password(
     db_user = db.get(User, user.user_id)
     if not db_user or not verify_password(data.current_password, db_user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="当前密码错误")
-    try:
-        validate_password(data.new_password)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     db_user.password_hash = hash_password(data.new_password)
     db.commit()
