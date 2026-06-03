@@ -1,5 +1,6 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pathlib import Path
 from sqlalchemy.orm import Session
 
 from ..auth import AuthUser, require_admin, require_member
@@ -10,10 +11,59 @@ from ..schemas.member import MemberCreate, MemberOut, MemberSelfUpdate, MemberUp
 from ..services.member_link import ensure_user_member_link
 from ..services.slug_assign import ensure_unique_slug
 from ..utils.grade_year import member_list_sort_key
+from ..utils.mdx_io import write_mdx
 
 router = APIRouter(prefix="/api/members", tags=["members"])
 admin = APIRouter(prefix="/api/admin/members", tags=["admin-members"], dependencies=[Depends(require_admin)])
 member = APIRouter(prefix="/api/member", tags=["member-profile"], dependencies=[Depends(require_member)])
+
+import os
+
+CONTENT_DIR = Path(os.environ.get("CONTENT_DIR", str(Path(__file__).resolve().parent.parent.parent / "contents" / "studio")))
+
+_STATUS_SUBDIR = {
+    "current": "current-members",
+    "alumni": "alumni",
+    "teacher": "teachers",
+}
+
+
+def _sync_member_mdx(m: Member) -> None:
+    """将成员数据写回 MDX 文件，确保 Git 可同步"""
+    subdir = _STATUS_SUBDIR.get(m.status, "current-members")
+    out_dir = CONTENT_DIR / subdir
+    slug = m.slug or m.name
+    path = out_dir / f"{slug}.mdx"
+
+    import json
+
+    skills = m.skills
+    if isinstance(skills, str):
+        try:
+            skills = json.loads(skills)
+        except (json.JSONDecodeError, TypeError):
+            skills = []
+
+    projects = m.projects
+    if isinstance(projects, str):
+        try:
+            projects = json.loads(projects)
+        except (json.JSONDecodeError, TypeError):
+            projects = []
+
+    fm = {
+        "title": m.name,
+        "role": m.role or "",
+        "grade": m.grade or "",
+        "group": m.group or "",
+        "avatar": m.avatar or "",
+        "intro": m.intro or "",
+        "message": m.message or "",
+        "skills": list(skills) if skills else [],
+        "projects": list(projects) if projects else [],
+        "order": m.sort_order or 0,
+    }
+    write_mdx(path, fm, m.body or "")
 
 @router.get("", response_model=list[MemberOut], summary="成员列表", description="公开。可用 query `status=current|alumni` 筛选。")
 def list_members(
@@ -73,6 +123,7 @@ def update_my_profile(
     m.updated_by = user.display_name
     db.commit()
     db.refresh(m)
+    _sync_member_mdx(m)
     return m
 
 @admin.get("", response_model=list[MemberOut], summary="成员列表（管理员）")
@@ -97,6 +148,7 @@ def create_member(data: MemberCreate, user: AuthUser = Depends(require_admin), d
     db.add(m)
     db.commit()
     db.refresh(m)
+    _sync_member_mdx(m)
     return m
 
 @admin.put("/{member_id}", response_model=MemberOut, summary="更新成员")
@@ -114,6 +166,7 @@ def update_member(
     m.updated_by = user.display_name
     db.commit()
     db.refresh(m)
+    _sync_member_mdx(m)
     return m
 
 @admin.delete("/{member_id}", status_code=204, summary="删除成员")
@@ -121,5 +174,11 @@ def delete_member(member_id: int, db: Session = Depends(get_db)):
     m = db.get(Member, member_id)
     if not m:
         raise HTTPException(status_code=404, detail="成员不存在")
+    # 删除对应的 MDX 文件
+    subdir = _STATUS_SUBDIR.get(m.status, "current-members")
+    slug = m.slug or m.name
+    mdx_path = CONTENT_DIR / subdir / f"{slug}.mdx"
+    if mdx_path.exists():
+        os.remove(mdx_path)
     db.delete(m)
     db.commit()

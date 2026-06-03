@@ -65,3 +65,41 @@ def parse_mdx(path: Path) -> tuple[dict, str]:
     if len(parts) < 3:
         return {}, raw.strip()
     return parse_frontmatter(parts[1]), parts[2].strip()
+
+
+def _yaml_list(items: list[str]) -> str:
+    if not items:
+        return "[]"
+    return "\n".join([f"  - {item}" for item in items])
+
+
+def write_mdx(path: Path, frontmatter: dict, body: str = "") -> None:
+    """\u5c06 frontmatter \u5b57\u5178\u548c\u6b63\u6587\u5199\u5165 MDX \u6587\u4ef6"""
+    lines = ["---"]
+    for key, value in frontmatter.items():
+        if key in ("body", "slug", "status"):
+            continue
+        if isinstance(value, list):
+            lines.append(f"{key}:")
+            lines.append(_yaml_list(value))
+        elif isinstance(value, bool):
+            lines.append(f"{key}: {'true' if value else 'false'}")
+        elif isinstance(value, (int, float)):
+            lines.append(f"{key}: {value}")
+        elif value is None or value == "":
+            lines.append(f'{key}: ""')
+        else:
+            s = str(value)
+            if ":" in s or s.startswith("{") or s.startswith("["):
+                s = s.replace('"', '\\"')
+                lines.append(f'{key}: "{s}"')
+            else:
+                lines.append(f"{key}: {s}")
+    lines.append("---")
+    lines.append("")
+    if body:
+        lines.append(body.strip())
+    else:
+        lines.append("")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")

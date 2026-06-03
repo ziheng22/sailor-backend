@@ -48,7 +48,7 @@ def seed():
             db.add(Page(slug=slug, title=data.get("title", slug),
                         description=data.get("description", ""), body=body))
 
-    for status, subdir in [("current", "current-members"), ("alumni", "alumni")]:
+    for status, subdir in [("current", "current-members"), ("alumni", "alumni"), ("teacher", "teachers")]:
         member_dir = CONTENT_DIR / subdir
         if not member_dir.exists():
             continue
