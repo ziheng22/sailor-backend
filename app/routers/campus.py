@@ -1,16 +1,40 @@
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
-from fastapi import APIRouter
+from ..database import get_db
+from ..models.campus_building import CampusBuilding
+from ..models.campus_poi import CampusPoi
+from ..schemas.campus import CampusBuildingOut, CampusPoiOut
 
 router = APIRouter(prefix="/api/campus", tags=["campus"])
 
+
 @router.get("", summary="校园漫游状态")
-def campus_status():
+def campus_status(db: Session = Depends(get_db)):
+    building_count = db.query(CampusBuilding).filter(CampusBuilding.is_active.is_(True)).count()
     return {
-        "status": "pending",
-        "message": "校园漫游数据接口预留，待同伴模块完成后对接",
-        "version": 0,
+        "status": "ready" if building_count else "pending",
+        "message": "业务数据由 API 提供；3D 场景配置由前端 JSON 维护，通过 buildingId 关联。",
+        "version": 1,
+        "building_count": building_count,
     }
 
-@router.get("/buildings", summary="建筑列表（占位）", description="同伴对接后改为从数据库或配置文件读取。")
-def campus_buildings():
-    return {"buildings": [], "meta": {"source": "placeholder"}}
+
+@router.get("/buildings", response_model=list[CampusBuildingOut], summary="建筑列表")
+def campus_buildings(db: Session = Depends(get_db)):
+    return (
+        db.query(CampusBuilding)
+        .filter(CampusBuilding.is_active.is_(True))
+        .order_by(CampusBuilding.sort_order, CampusBuilding.id)
+        .all()
+    )
+
+
+@router.get("/buildings/{building_id}/pois", response_model=list[CampusPoiOut], summary="建筑 POI")
+def campus_pois(building_id: str, db: Session = Depends(get_db)):
+    return (
+        db.query(CampusPoi)
+        .filter(CampusPoi.building_id == building_id)
+        .order_by(CampusPoi.floor, CampusPoi.id)
+        .all()
+    )

@@ -38,6 +38,10 @@ def prepare_article_payload(data: dict, user: AuthUser) -> dict:
     elif "completed_at" in payload:
         payload["completed_at"] = parse_completed_at(payload["completed_at"])
 
+    if "published_at" in payload and isinstance(payload["published_at"], str):
+        text = payload["published_at"].strip()
+        payload["published_at"] = text if text else None
+
     return payload
 
 def apply_article_fields(article: Article, payload: dict, editor: str) -> None:

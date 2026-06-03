@@ -13,5 +13,9 @@ OPENAPI_TAGS = [
     {"name": "points", "description": "积分榜与流水 — 需登录"},
     {"name": "admin-points", "description": "积分下发 — 仅管理员"},
     {"name": "admin-uploads", "description": "文件上传与管理 — 仅管理员"},
+    {
+        "name": "media",
+        "description": "外链视频解析 — B 站（b23.tv 短链）、抖音（v.douyin.com / 分享口令）转嵌入播放器",
+    },
     {"name": "campus", "description": "校园漫游 — 预留接口"},
 ]

@@ -9,9 +9,12 @@ from app.config import settings
 from app.database import SessionLocal
 from app.services.slug_sync import sync_slugs_from_content
 
-_repo_root = Path(__file__).resolve().parent.parent
+_repo_root = Path(__file__).resolve().parent
 _default = _repo_root / "contents" / "studio"
-_legacy = _repo_root.parent / "sailor-studio" / "contents" / "studio"
+_legacy_paths = [
+    _repo_root.parent / "sailor-frontend" / "contents" / "studio",
+    _repo_root.parent / "posthog.com" / "contents" / "studio",
+]
 
 def resolve_content_dir() -> Path:
     if settings.content_dir:
@@ -21,8 +24,9 @@ def resolve_content_dir() -> Path:
         return Path(env)
     if _default.exists():
         return _default
-    if _legacy.exists():
-        return _legacy
+    for legacy in _legacy_paths:
+        if legacy.exists():
+            return legacy
     return _default
 
 if __name__ == "__main__":

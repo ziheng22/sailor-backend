@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import Response
 from starlette.middleware.gzip import GZipMiddleware
 
 from .config import settings
@@ -15,7 +14,7 @@ from .database import Base, check_database, engine
 from .middleware.security import AuthRateLimitMiddleware, SecurityHeadersMiddleware
 from .migrate import run_migrations
 from .openapi_tags import OPENAPI_TAGS
-from .routers import articles, campus, members, pages, points, projects, uploads
+from .routers import articles, campus, media, members, pages, points, projects, uploads
 from .routers.auth_router import router as auth_router
 from .startup_checks import configure_logging, run_startup_checks
 
@@ -61,21 +60,14 @@ def create_app() -> FastAPI:
 
     uploads_path = Path(settings.upload_dir)
     uploads_path.mkdir(parents=True, exist_ok=True)
-
-    class SafeStaticFiles(StaticFiles):
-        async def get_response(self, path: str, scope) -> Response:
-            response = await super().get_response(path, scope)
-            if path.lower().endswith(".svg"):
-                response.headers["Content-Disposition"] = "attachment"
-            return response
-
-    application.mount("/uploads", SafeStaticFiles(directory=str(uploads_path.resolve())), name="uploads")
+    application.mount("/uploads", StaticFiles(directory=str(uploads_path.resolve())), name="uploads")
 
     application.include_router(members.router)
     application.include_router(projects.router)
     application.include_router(articles.router)
     application.include_router(pages.router)
     application.include_router(campus.router)
+    application.include_router(media.router)
     application.include_router(auth_router)
     application.include_router(members.member)
     application.include_router(articles.member)

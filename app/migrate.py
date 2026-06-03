@@ -61,7 +61,6 @@ def run_migrations() -> None:
 
         if "articles" in tables:
             _add_column(conn, "articles", "slug", "slug VARCHAR(128)")
-            _add_column(conn, "articles", "cover", "cover VARCHAR(256) DEFAULT ''")
             _add_column(conn, "articles", "member_names", "member_names TEXT DEFAULT '[]'")
             _add_column(conn, "articles", "completed_at", "completed_at DATETIME")
             _backfill_slugs(conn, "articles", "title")

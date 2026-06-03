@@ -6,3 +6,5 @@ from .page import Page
 from .upload import Upload
 from .user import User
 from .point_transaction import PointTransaction
+from .campus_building import CampusBuilding
+from .campus_poi import CampusPoi

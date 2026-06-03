@@ -63,20 +63,11 @@ def _payload_to_auth_user(payload: dict) -> AuthUser:
         member_id=payload.get("member_id"),
     )
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db),
-) -> AuthUser:
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> AuthUser:
     try:
-        payload = decode_token(credentials.credentials)
+        return _payload_to_auth_user(decode_token(credentials.credentials))
     except JWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效令牌")
-    auth_user = _payload_to_auth_user(payload)
-    db_user = db.get(User, auth_user.user_id)
-    if db_user:
-        auth_user.role = db_user.role
-        auth_user.member_id = db_user.member_id
-    return auth_user
 
 def get_optional_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(optional_security),
@@ -88,8 +79,12 @@ def get_optional_user(
     except JWTError:
         return None
 
-def require_admin(user: AuthUser = Depends(get_current_user)) -> AuthUser:
-    if not user.is_admin:
+def require_admin(
+    user: AuthUser = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> AuthUser:
+    db_user = db.get(User, user.user_id)
+    if not db_user or db_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限")
     return user
 

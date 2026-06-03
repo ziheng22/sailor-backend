@@ -5,9 +5,7 @@ from sqlalchemy.orm import Session
 from ..auth import AuthUser, require_admin, require_member
 from ..database import get_db
 from ..models.member import Member
-from ..models.point_transaction import PointTransaction
 from ..models.user import User
-from ..schemas.common import PaginatedResponse
 from ..schemas.member import MemberCreate, MemberOut, MemberSelfUpdate, MemberUpdate
 from ..services.member_link import ensure_user_member_link
 from ..services.slug_assign import ensure_unique_slug
@@ -17,20 +15,17 @@ router = APIRouter(prefix="/api/members", tags=["members"])
 admin = APIRouter(prefix="/api/admin/members", tags=["admin-members"], dependencies=[Depends(require_admin)])
 member = APIRouter(prefix="/api/member", tags=["member-profile"], dependencies=[Depends(require_member)])
 
-@router.get("", response_model=PaginatedResponse[MemberOut], summary="成员列表", description="公开。可用 query `status=current|alumni` 筛选，`limit`/`offset` 分页。")
+@router.get("", response_model=list[MemberOut], summary="成员列表", description="公开。可用 query `status=current|alumni` 筛选。")
 def list_members(
     status_filter: str | None = Query(None, alias="status"),
-    limit: int = Query(200, ge=1, le=500),
-    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ):
     q = db.query(Member)
     if status_filter:
         q = q.filter(Member.status == status_filter)
-    total = q.count()
     members = q.all()
     members.sort(key=lambda m: member_list_sort_key(m.grade, m.sort_order or 0, m.id))
-    return PaginatedResponse(items=members[offset:offset + limit], total=total, limit=limit, offset=offset)
+    return members
 
 @router.get("/by-slug/{slug}", response_model=MemberOut, summary="按 slug 获取成员")
 def get_member_by_slug(slug: str, db: Session = Depends(get_db)):
@@ -80,20 +75,17 @@ def update_my_profile(
     db.refresh(m)
     return m
 
-@admin.get("", response_model=PaginatedResponse[MemberOut], summary="成员列表（管理员）")
+@admin.get("", response_model=list[MemberOut], summary="成员列表（管理员）")
 def admin_list_members(
     status_filter: str | None = Query(None, alias="status"),
-    limit: int = Query(200, ge=1, le=500),
-    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ):
     q = db.query(Member)
     if status_filter:
         q = q.filter(Member.status == status_filter)
-    total = q.count()
     members = q.all()
     members.sort(key=lambda m: member_list_sort_key(m.grade, m.sort_order or 0, m.id))
-    return PaginatedResponse(items=members[offset:offset + limit], total=total, limit=limit, offset=offset)
+    return members
 
 @admin.post("", response_model=MemberOut, status_code=201, summary="创建成员")
 def create_member(data: MemberCreate, user: AuthUser = Depends(require_admin), db: Session = Depends(get_db)):
@@ -129,9 +121,5 @@ def delete_member(member_id: int, db: Session = Depends(get_db)):
     m = db.get(Member, member_id)
     if not m:
         raise HTTPException(status_code=404, detail="成员不存在")
-    linked_users = db.query(User).filter(User.member_id == member_id).all()
-    for u in linked_users:
-        u.member_id = None
-    db.query(PointTransaction).filter(PointTransaction.member_id == member_id).delete()
     db.delete(m)
     db.commit()

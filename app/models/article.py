@@ -11,7 +11,6 @@ class Article(Base):
     title = Column(String(128), nullable=False)
     member_names = Column(Text, default="[]")
     completed_at = Column(DateTime, nullable=True)
-    cover = Column(String(256), default="")
     type = Column(String(32), default="工作室动态")
     tags = Column(Text, default="[]")
     published_at = Column(Date, nullable=True)

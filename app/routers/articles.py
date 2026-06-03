@@ -1,5 +1,5 @@
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..auth import AuthUser, get_optional_user, require_admin, require_member
@@ -66,21 +66,18 @@ def _update_article(db: Session, article: Article, data: ArticleUpdate, user: Au
     db.refresh(article)
     return article
 
-@router.get("", summary="航海日志列表", description="公开。带 Bearer token 时响应含截止时间 completed_at。`limit`/`offset` 分页。")
+@router.get("", summary="航海日志列表", description="公开。带 Bearer token 时响应含截止时间 completed_at。")
 def list_articles(
     db: Session = Depends(get_db),
     user: AuthUser | None = Depends(get_optional_user),
-    limit: int = Query(200, ge=1, le=500),
-    offset: int = Query(0, ge=0),
 ):
-    q = (
+    articles = (
         db.query(Article)
         .filter(Article.is_displayed.is_(True))
         .order_by(Article.published_at.desc().nullslast(), Article.sort_order, Article.id)
+        .all()
     )
-    total = q.count()
-    articles = q.offset(offset).limit(limit).all()
-    return {"items": serialize_articles(articles, user), "total": total, "limit": limit, "offset": offset}
+    return serialize_articles(articles, user)
 
 @router.get("/by-slug/{slug}", summary="按 slug 获取日志")
 def get_article_by_slug(
@@ -147,16 +144,9 @@ def member_list_revisions(article_id: int, db: Session = Depends(get_db)):
     _get_by_id(db, article_id)
     return _list_revisions(db, article_id)
 
-@admin.get("", summary="日志列表（管理员）")
-def admin_list_articles(
-    limit: int = Query(200, ge=1, le=500),
-    offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
-):
-    q = db.query(Article).order_by(Article.published_at.desc().nullslast(), Article.sort_order, Article.id)
-    total = q.count()
-    articles = q.offset(offset).limit(limit).all()
-    return {"items": articles, "total": total, "limit": limit, "offset": offset}
+@admin.get("", response_model=list[ArticleOut], summary="日志列表（管理员）")
+def admin_list_articles(db: Session = Depends(get_db)):
+    return db.query(Article).order_by(Article.published_at.desc().nullslast(), Article.sort_order, Article.id).all()
 
 @admin.post("", response_model=ArticleOut, status_code=201, summary="创建日志")
 def admin_create_article(

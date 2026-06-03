@@ -16,12 +16,18 @@ from app.models.user import User
 from app.services.slug_assign import ensure_unique_slug
 from app.utils.mdx_io import parse_mdx
 
-_repo_root = Path(__file__).resolve().parent.parent
+_repo_root = Path(__file__).resolve().parent
 _default_content = _repo_root / "contents" / "studio"
-_legacy_content = _repo_root.parent / "sailor-studio" / "contents" / "studio"
+_legacy_paths = [
+    _repo_root.parent / "sailor-frontend" / "contents" / "studio",
+    _repo_root.parent / "posthog.com" / "contents" / "studio",
+]
 CONTENT_DIR = Path(settings.content_dir or os.environ.get("CONTENT_DIR", str(_default_content)))
-if not CONTENT_DIR.exists() and _legacy_content.exists():
-    CONTENT_DIR = _legacy_content
+if not CONTENT_DIR.exists():
+    for legacy in _legacy_paths:
+        if legacy.exists():
+            CONTENT_DIR = legacy
+            break
 
 def _upsert_member_slug(db, row: Member, stem: str) -> None:
     if row.slug != stem:
