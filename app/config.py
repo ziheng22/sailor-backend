@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     server_host: str = "0.0.0.0"
     server_port: int = 8000
-    database_url: str = "sqlite:///./sailor.db"
+    database_url: str = "sqlite:///../data/sailor.db"
     jwt_secret: str = "dev-secret"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 480
